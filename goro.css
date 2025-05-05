@@ -1,0 +1,480 @@
+@charset "UTF-8";
+
+
+
+body {
+  font-family: 'MS Sans Serif', 'Microsoft Sans Serif', sans-serif;
+  background-color: #008080;
+  background-image: url('https://goroishihata.com/image/kabe.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  color: #000;
+}
+
+.desktop {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+.taskbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  padding: 1px;
+  width: 100%;
+  height: 42px;
+  background-color: #c0c0c0;
+  border-top: 1px solid #ffffff;
+  display: flex;
+  z-index: 1000;
+}
+
+.start-button {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  width: 150px;
+  margin: 2px 2px 2px 2px;
+  padding: 4px;
+  background-color: #c0c0c0;
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  cursor: pointer;
+}
+
+.start-button:active {
+  border-top: 1px solid #808080;
+  border-left: 1px solid #808080;
+  border-right: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+}
+
+.start-button img {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
+
+.clock {
+  height: 22px;
+  margin: 2px 2px 2px auto;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #808080;
+  border-left: 1px solid #808080;
+  border-right: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+}
+
+.icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 70px;
+  margin: 10px;
+  cursor: pointer;
+}
+
+.icon img {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 5px;
+}
+
+.icon-label {
+  color: white;
+  text-align: center;
+  font-size: 12px;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.admin-note {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 200px;
+  background-color: #ffffcc;
+  border: 1px solid #000000;
+  padding: 10px;
+  font-size: 12px;
+  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3);
+}
+
+.admin-note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  font-weight: bold;
+  border-bottom: 1px solid #000000;
+  padding-bottom: 5px;
+}
+
+.admin-note-content {
+  background-color: #ffffff;
+  border: 1px inset #808080;
+  padding: 5px;
+  min-height: 100px;
+}
+
+.admin-login {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 250px;
+  background-color: #c0c0c0;
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #808080;
+  border-bottom: 2px solid #808080;
+  padding: 10px;
+  z-index: 2000;
+  display: none;
+}
+
+.admin-login-header {
+  background-color: #000080;
+  color: white;
+  font-weight: bold;
+  padding: 5px;
+  margin: -10px -10px 10px -10px;
+}
+
+.admin-login-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.admin-login-button {
+  padding: 3px 10px;
+  margin-left: 5px;
+  background-color: #c0c0c0;
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  cursor: pointer;
+}
+
+.window {
+  position: absolute;
+  background-color: #c0c0c0;
+  border-top: 1px solid #dfdfdf;
+  border-left: 1px solid #dfdfdf;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+  min-height: 200px;
+  z-index: 100;
+}
+
+.draggable {
+  position: absolute;
+  cursor: move;
+}
+
+.window-header {
+  height: 24px;
+  background-color: #000080;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px;
+  font-size: 12px;
+}
+
+.window-controls {
+  display: flex;
+}
+
+.window-button {
+  width: 17px;
+  height: 17px;
+  margin-left: 2px;
+  background-color: #c0c0c0;
+  color: black;
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.window-content {
+  padding: 10px;
+  font-size: 12px;
+  overflow: auto;
+  height: calc(100% - 40px);
+}
+
+.window-content h1 {
+  font-size: 16px;
+  margin-top: 0;
+}
+
+.menu-bar {
+  display: flex;
+  border-bottom: 1px solid #808080;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
+.menu-item {
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background-color: #000080;
+  color: white;
+}
+
+/* Programs styling */
+.notepad-content {
+  background-color: white;
+  height: calc(100% - 20px);
+  border: 1px solid #808080;
+  margin: 10px;
+  padding: 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  outline: none;
+  overflow: auto;
+}
+
+.my-computer-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+
+.folder-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 70px;
+  height: 70px;
+  margin: 10px;
+  cursor: pointer;
+}
+
+/* Start Menu */
+.start-menu {
+  position: absolute;
+  bottom: 28px;
+  left: 0;
+  width: 200px;
+  background-color: #c0c0c0;
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #808080;
+  border-bottom: 2px solid #808080;
+  z-index: 1001;
+  display: none;
+}
+
+.start-menu-header {
+  height: 56px;
+  background-color: #000080;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  font-weight: bold;
+  font-size: 18px;
+  font-style: italic;
+}
+
+.start-menu-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.start-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.start-menu-item:hover {
+  background-color: #000080;
+  color: white;
+}
+
+.start-menu-item img {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.start-menu-separator {
+  height: 1px;
+  background-color: #808080;
+  margin: 4px 0;
+}
+
+.start-menu-footer {
+  display: flex;
+  border-top: 1px solid #808080;
+  margin-top: 5px;
+}
+
+.start-menu-footer-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.start-menu-footer-item:hover {
+  background-color: #000080;
+  color: white;
+}
+
+.start-menu-footer-item img {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.start-menu-submenu {
+  position: absolute;
+  left: 200px;
+  background-color: #c0c0c0;
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-right: 2px solid #808080;
+  border-bottom: 2px solid #808080;
+  width: 180px;
+  display: none;
+}
+
+.resize-handle {
+  width: 27px;
+  height: 27px;
+  background-color: rgba(204, 204, 204, 0); /* 数値を調整して透明度を変更 */
+  position: absolute;
+  z-index: 10;
+}
+.resize-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+.resize-handle-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+.resize-handle-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+  width: 5px; /* 右上だけサイズを小さく */
+  height: 5px;
+}
+.resize-handle-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+
+
+.photo-title {
+  position: absolute;
+}
+
+
+.photo-goro {
+  padding: 10px;
+  z-index: 10;
+}
+
+/* BBS スタイル */
+.bbs-window {
+  background-color: #c0c0c0;
+  border-top: 1px solid #dfdfdf;
+  border-left: 1px solid #dfdfdf;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 50;
+}
+
+.bbs-content {
+  background-color: white;
+  border: 1px inset #808080;
+  font-size: 12px;
+}
+
+.bbs-message {
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 5px;
+}
+
+.bbs-message-header {
+  font-size: 11px;
+  color: #0000A0;
+  margin-bottom: 3px;
+}
+
+.bbs-message-body {
+  font-size: 12px;
+  word-wrap: break-word;
+}
+
+.bbs-input {
+  border-top: 1px solid #808080;
+}
+
+/* 写真とタイトル画像のスタイル */
+.photo-title {
+  text-align: center;
+  z-index: 5;
+}
+
+.photo-header {
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+.photo-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.photo-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.photo-goro {
+
+  padding: 10px;
+  border-radius: 5px;
+  z-index: 10;
+}

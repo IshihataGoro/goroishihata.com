@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoroAuction - 管理ページ</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <style>
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-10">
+      <h1 class="text-3xl font-bold text-indigo-800">GoroAuction 管理ページ - 0x2756Fb5146038dd53FB3E02727Cfa022a2f44394</h1>
+      <div class="flex justify-between items-center mt-4">
+        <div id="wallet-status" class="text-sm">ウォレット: 未接続</div>
+        <button id="connect-wallet" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+          メタマスク接続
+        </button>
+      </div>
+    </header>
+
+    <div id="owner-only-warning" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
+      <p>この管理ページはオーナーアドレスのみが使用できます。別のアドレスで接続しています。</p>
+    </div>
+
+    <div id="admin-controls" class="hidden">
+      <!-- タブナビゲーション -->
+      <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+          <button id="tab-create" class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+            オークション作成
+          </button>
+          <button id="tab-manage" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+            オークション管理
+          </button>
+          <button id="tab-withdraw" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+            資産の引き出し
+          </button>
+        </nav>
+      </div>
+
+      <!-- オークション作成フォーム -->
+      <div id="panel-create" class="tab-panel">
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">オークション作成</h2>
+          
+          <form id="create-auction-form">
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="nft-contract">
+                NFTコントラクトアドレス：0x6C621364993E5CD4C6468930d287ba76Ef64F366
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="nft-contract" type="text" placeholder="0x..." required>
+            </div>
+            
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="token-id">
+                トークンID
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="token-id" type="number" placeholder="1" required>
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="start-price">
+                開始価格 (WETH)
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="start-price" type="number" placeholder="10" min="0.001" step="0.001" required>
+              <p class="text-sm text-gray-500 mt-1">※最小入札単位は0.001wethです</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="start-date">
+                  開始日時
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                  id="start-date" type="datetime-local" required>
+              </div>
+              
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="end-date">
+                  終了日時
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                  id="end-date" type="datetime-local" required>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <button type="button" id="check-nft" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                NFT所有権確認
+              </button>
+              <span id="nft-ownership-status" class="ml-2 text-sm"></span>
+            </div>
+
+            <div class="mb-4 hidden" id="approval-section">
+              <p class="text-sm text-gray-600 mb-2">コントラクトにNFT処理権限を付与する必要があります：</p>
+              <button type="button" id="approve-nft" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                NFTをアプルーブ
+              </button>
+              <span id="approval-status" class="ml-2 text-sm"></span>
+            </div>
+
+            <div id="create-auction-status" class="mb-4 hidden bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4">
+              <p id="create-auction-message">処理中...</p>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <button type="submit" id="create-auction-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                オークション作成
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">NFTをコントラクトに入庫</h2>
+          
+          <form id="deposit-nft-form">
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="deposit-nft-contract">
+                NFTコントラクトアドレス：0x6C621364993E5CD4C6468930d287ba76Ef64F366
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="deposit-nft-contract" type="text" placeholder="0x..." required>
+            </div>
+            
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="deposit-token-id">
+                トークンID
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="deposit-token-id" type="number" placeholder="1" required>
+            </div>
+
+            <div class="mb-4">
+              <button type="button" id="check-deposit-nft" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                NFT所有権確認
+              </button>
+              <span id="deposit-nft-status" class="ml-2 text-sm"></span>
+            </div>
+
+            <div class="mb-4 hidden" id="deposit-approval-section">
+              <p class="text-sm text-gray-600 mb-2">コントラクトにNFT処理権限を付与する必要があります：</p>
+              <button type="button" id="approve-deposit-nft" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                NFTをアプルーブ
+              </button>
+              <span id="deposit-approval-status" class="ml-2 text-sm"></span>
+            </div>
+
+            <div id="deposit-nft-status-box" class="mb-4 hidden bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4">
+              <p id="deposit-nft-message">処理中...</p>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <button type="submit" id="deposit-nft-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                NFTを入庫
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- コントラクト内NFTリスト -->
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+          <h2 class="text-xl font-semibold mb-4">コントラクト内NFTリスト</h2>
+          
+          <div id="contract-nft-list-loading" class="text-center py-4">
+            <div class="loading"></div>
+            <p class="mt-2 text-gray-600">NFT情報を読み込み中...</p>
+          </div>
+          
+          <div id="contract-nft-list-container" class="hidden">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NFTアドレス</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">トークンID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="contract-nft-list-body" class="bg-white divide-y divide-gray-200">
+                  <!-- NFTデータがここに挿入されます -->
+                </tbody>
+              </table>
+            </div>
+            
+            <div id="no-contract-nft-list" class="hidden text-center py-4 text-gray-600">
+              コントラクト内にNFTはありません。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- オークション管理 -->
+      <div id="panel-manage" class="tab-panel hidden">
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">アクティブなオークション</h2>
+          <div id="active-auction-loading" class="text-center py-4">
+            <div class="loading"></div>
+            <p class="mt-2 text-gray-600">オークション情報を読み込み中...</p>
+          </div>
+          <div id="active-auction-info" class="hidden">
+            <div id="no-active-auction" class="hidden text-gray-600">
+              アクティブなオークションはありません。
+            </div>
+            <div id="active-auction-details" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="border-r pr-4">
+                  <p><strong>オークションID:</strong> <span id="auction-id"></span></p>
+                  <p><strong>NFTアドレス:</strong> <span id="auction-nft-address"></span></p>
+                  <p><strong>トークンID:</strong> <span id="auction-token-id"></span></p>
+                  <p><strong>現在の最高額:</strong> <span id="auction-highest-bid"></span> POL</p>
+                  <p><strong>最高入札者:</strong> <span id="auction-highest-bidder"></span></p>
+                </div>
+                <div>
+                  <p><strong>開始時間:</strong> <span id="auction-start-time"></span></p>
+                  <p><strong>終了時間:</strong> <span id="auction-end-time"></span></p>
+                  <p><strong>残り時間:</strong> <span id="auction-remaining-time"></span></p>
+                  <p><strong>自動延長使用回数:</strong> <span id="auction-extension-count"></span>/<span id="auction-max-extensions"></span></p>
+                  <p><strong>ステータス:</strong> <span id="auction-status"></span></p>
+                </div>
+              </div>
+              
+              <div class="mt-6 flex space-x-4">
+                <button id="cancel-auction" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                  オークションキャンセル
+                </button>
+                <button id="reconfigure-auction" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                  オークション再設定
+                </button>
+                <button id="finalize-auction" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                  オークション終了処理
+                </button>
+              </div>
+              
+              <div id="auction-action-status" class="mt-4 hidden"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- オークションメッセージ設定 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">オークションメッセージ設定</h2>
+          <form id="auction-message-form">
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="message-auction-id">
+                オークションID
+              </label>
+              <input type="number" id="message-auction-id" 
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                placeholder="メッセージを設定するオークションID">
+            </div>
+            <div class="mb-4">
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="auction-message">
+                オークションメッセージ
+              </label>
+              <textarea id="auction-message" rows="3" 
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                placeholder="オークションに関する追加情報やお知らせを入力..."></textarea>
+            </div>
+            <div class="flex space-x-4">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                メッセージを設定
+              </button>
+              <button type="button" id="load-auction-message" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                メッセージを読み込み
+              </button>
+            </div>
+          </form>
+          <div id="auction-message-status" class="mt-2 hidden"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-xl font-semibold mb-4">過去のオークション</h2>
+          <div id="past-auctions-loading" class="text-center py-4">
+            <div class="loading"></div>
+            <p class="mt-2 text-gray-600">過去のオークション情報を読み込み中...</p>
+          </div>
+          <div id="past-auctions-list" class="hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NFT</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最高額</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">終了日時</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                </tr>
+              </thead>
+              <tbody id="past-auctions-body" class="bg-white divide-y divide-gray-200">
+                <!-- 過去のオークションデータがここに挿入されます -->
+              </tbody>
+            </table>
+            <div id="no-past-auctions" class="hidden text-center py-4 text-gray-600">
+              過去のオークション記録はありません。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 資産の引き出し -->
+      <div id="panel-withdraw" class="tab-panel hidden">
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">コントラクト残高</h2>
+          <div id="contract-balance-loading" class="text-center py-4">
+            <div class="loading"></div>
+            <p class="mt-2 text-gray-600">残高情報を読み込み中...</p>
+          </div>
+          <div id="contract-balance-info" class="hidden">
+            <p class="text-xl"><strong>POL残高:</strong> <span id="matic-balance"></span> POL</p>
+            <div class="mt-4">
+              <form id="withdraw-matic-form" class="flex items-end space-x-4">
+                <div class="flex-1">
+                  <label class="block text-gray-700 text-sm font-bold mb-2" for="withdraw-amount">
+                    引き出し額 (POL)
+                  </label>
+                  <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                    id="withdraw-amount" type="number" placeholder="0.0" min="0" step="0.1" required>
+                </div>
+                <div class="flex-1">
+                  <label class="block text-gray-700 text-sm font-bold mb-2" for="withdraw-to">
+                    送金先アドレス
+                  </label>
+                  <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                    id="withdraw-to" type="text" placeholder="0x...">
+                </div>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline h-10">
+                  引き出し
+                </button>
+              </form>
+              <div id="withdraw-matic-status" class="mt-2 hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 class="text-xl font-semibold mb-4">ERC20トークン引き出し</h2>
+          <p class="text-sm text-gray-600 mb-4">コントラクトに誤って送付されたERC20トークンを回収します。</p>
+          <form id="withdraw-erc20-form" class="space-y-4">
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="erc20-contract">
+                トークンコントラクトアドレス
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="erc20-contract" type="text" placeholder="0x..." required>
+            </div>
+            
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="erc20-amount">
+                引き出し額
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="erc20-amount" type="number" placeholder="0.0" min="0" step="0.000001" required>
+            </div>
+            
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2" for="erc20-to">
+                送金先アドレス
+              </label>
+              <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                id="erc20-to" type="text" placeholder="0x...">
+            </div>
+            
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+              ERC20トークンを引き出し
+            </button>
+          </form>
+          <div id="withdraw-erc20-status" class="mt-2 hidden"></div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-xl font-semibold mb-4">コントラクト内NFT</h2>
+          <div id="contract-nfts-loading" class="text-center py-4">
+            <div class="loading"></div>
+            <p class="mt-2 text-gray-600">NFT情報を読み込み中...</p>
+          </div>
+          <div id="contract-nfts-info" class="hidden">
+            <p class="text-sm text-gray-600 mb-4">※ここにはオークション中のNFTを含むすべてのNFTが表示されます。オークション中のNFTは引き出せません。</p>
+            <div id="contract-nfts-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- NFTリストがここに挿入されます -->
+            </div>
+            <div id="no-contract-nfts" class="hidden text-center py-4 text-gray-600">
+              コントラクト内にNFTはありません。
+            </div>
+
+            <div class="mt-6">
+              <h3 class="text-lg font-semibold mb-2">NFT引き出し</h3>
+              <form id="withdraw-nft-form" class="space-y-4">
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2" for="withdraw-nft-contract">
+                    NFTコントラクトアドレス：0x6C621364993E5CD4C6468930d287ba76Ef64F366
+                  </label>
+                  <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                    id="withdraw-nft-contract" type="text" placeholder="0x..." required>
+                </div>
+                
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2" for="withdraw-token-id">
+                    トークンID
+                  </label>
+                  <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                    id="withdraw-token-id" type="number" placeholder="1" required>
+                </div>
+                
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2" for="withdraw-nft-to">
+                    送付先アドレス
+                  </label>
+                  <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                    id="withdraw-nft-to" type="text" placeholder="0x...">
+                </div>
+                
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                  NFTを引き出し
+                </button>
+              </form>
+              <div id="withdraw-nft-status" class="mt-2 hidden"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // GoroAuctionコントラクトのABI
+    const contractABI = 
+[{"inputs":[{"internalType":"address","name":"_wethAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"}],"name":"AuctionCanceled","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"nft","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"startPrice","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"startTime","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"endTime","type":"uint256"}],"name":"AuctionCreated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"oldEndTime","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newEndTime","type":"uint256"}],"name":"AuctionExtended","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"highestBidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"highestBid","type":"uint256"}],"name":"AuctionFinalized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"}],"name":"AuctionMessageUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newStartPrice","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newStartTime","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"newEndTime","type":"uint256"}],"name":"AuctionReconfigured","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BidPlaced","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BidRemoved","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"auctionId","type":"uint256"},{"indexed":false,"internalType":"address","name":"bidder","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BidWithdrawn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"ERC20Rescued","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"FundsRescued","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"nft","type":"address"},{"indexed":false,"internalType":"uint256","name":"tokenId","type":"uint256"},{"indexed":false,"internalType":"address","name":"to","type":"address"}],"name":"NFTRescued","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"inputs":[],"name":"activeAuctionId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"auctionMessages","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"auctions","outputs":[{"internalType":"address","name":"seller","type":"address"},{"internalType":"address","name":"nftAddress","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"highestBid","type":"uint256"},{"internalType":"address","name":"highestBidder","type":"address"},{"internalType":"bool","name":"finalized","type":"bool"},{"internalType":"bool","name":"canceled","type":"bool"},{"internalType":"bool","name":"active","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"bids","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"cancelAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_nftAddress","type":"address"},{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"uint256","name":"_startPrice","type":"uint256"},{"internalType":"uint256","name":"_startTime","type":"uint256"},{"internalType":"uint256","name":"_duration","type":"uint256"}],"name":"createAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_nftAddress","type":"address"},{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"uint256","name":"_startPrice","type":"uint256"},{"internalType":"uint256","name":"_startTime","type":"uint256"},{"internalType":"uint256","name":"_endTime","type":"uint256"}],"name":"createAuctionWithEndTime","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_nftAddress","type":"address"},{"internalType":"uint256","name":"_tokenId","type":"uint256"}],"name":"depositNFT","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"extensionDuration","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"extensionEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"extensionThreshold","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"finalizeAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getActiveAuctionId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"getAuctionBidders","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"getAuctionInfo","outputs":[{"internalType":"address","name":"nftAddress","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"highestBid","type":"uint256"},{"internalType":"address","name":"highestBidder","type":"address"},{"internalType":"bool","name":"finalized","type":"bool"},{"internalType":"bool","name":"canceled","type":"bool"},{"internalType":"bool","name":"active","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"},{"internalType":"address","name":"_bidder","type":"address"}],"name":"getBidAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getPastAuctions","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"getRemainingTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"nextAuctionId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"pastAuctions","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"},{"internalType":"uint256","name":"_bidAmount","type":"uint256"}],"name":"placeBid","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"},{"internalType":"uint256","name":"_newStartPrice","type":"uint256"},{"internalType":"uint256","name":"_newStartTime","type":"uint256"},{"internalType":"uint256","name":"_newDuration","type":"uint256"}],"name":"reconfigureAuction","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"},{"internalType":"address","name":"_bidder","type":"address"}],"name":"removeBid","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_token","type":"address"},{"internalType":"address","name":"_to","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"rescueERC20","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_to","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"rescueFunds","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_nft","type":"address"},{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"address","name":"_to","type":"address"}],"name":"rescueNFT","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"},{"internalType":"string","name":"_message","type":"string"}],"name":"setAuctionMessage","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_enabled","type":"bool"},{"internalType":"uint256","name":"_threshold","type":"uint256"},{"internalType":"uint256","name":"_duration","type":"uint256"}],"name":"setExtensionParameters","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"wethAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_auctionId","type":"uint256"}],"name":"withdrawBid","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}
+];
+
+    // ERC721コントラクトのABI
+    const erc721ABI = [
+      "function balanceOf(address owner) view returns (uint256 balance)",
+      "function ownerOf(uint256 tokenId) view returns (address owner)",
+      "function approve(address to, uint256 tokenId)",
+      "function getApproved(uint256 tokenId) view returns (address operator)",
+      "function isApprovedForAll(address owner, address operator) view returns (bool)",
+      "function setApprovalForAll(address operator, bool _approved)",
+      "function transferFrom(address from, address to, uint256 tokenId)"
+    ];
+
+    // ERC20コントラクトのABI
+    const erc20ABI = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function transfer(address to, uint256 amount) returns (bool)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    // アプリケーション状態
+    let state = {
+      contractAddress: "0x2756Fb5146038dd53FB3E02727Cfa022a2f44394",
+     // コントラクトアドレス
+      connected: false,
+      account: null,
+      contract: null,
+      isOwner: false,
+      provider: null,
+      signer: null,
+      ethers: null,
+      activeAuction: null,
+      refreshInterval: null
+    };
+
+    // DOM要素の参照を取得
+    const connectWalletBtn = document.getElementById('connect-wallet');
+    const walletStatus = document.getElementById('wallet-status');
+    const ownerWarning = document.getElementById('owner-only-warning');
+    const adminControls = document.getElementById('admin-controls');
+
+    // タブ管理
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    // 初期化関数
+    async function init() {
+      setupEventListeners();
+      setupTabs();
+      
+      // メタマスクが利用可能か確認
+      if (typeof window.ethereum !== 'undefined') {
+        console.log('MetaMask is installed!');
+        
+        // 既に接続されているか確認
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            await connectWallet();
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      } else {
+        alert('MetaMaskをインストールしてください！');
+      }
+    }
+
+    // イベントリスナーの設定
+    function setupEventListeners() {
+      // ウォレット接続ボタン
+      connectWalletBtn.addEventListener('click', connectWallet);
+      
+      // オークション作成フォーム
+      document.getElementById('create-auction-form').addEventListener('submit', handleCreateAuction);
+      document.getElementById('check-nft').addEventListener('click', checkNFTOwnership);
+      document.getElementById('approve-nft').addEventListener('click', approveNFT);
+      
+      // NFT入庫フォーム
+      document.getElementById('deposit-nft-form').addEventListener('submit', handleDepositNFT);
+      document.getElementById('check-deposit-nft').addEventListener('click', checkDepositNFTOwnership);
+      document.getElementById('approve-deposit-nft').addEventListener('click', approveDepositNFT);
+      
+      // オークション管理
+      document.getElementById('cancel-auction').addEventListener('click', cancelAuction);
+      document.getElementById('reconfigure-auction').addEventListener('click', reconfigureAuction);
+      document.getElementById('finalize-auction').addEventListener('click', finalizeAuction);
+      
+      // メッセージ設定
+      document.getElementById('auction-message-form').addEventListener('submit', setAuctionMessage);
+      document.getElementById('load-auction-message').addEventListener('click', loadAuctionMessage);
+      
+      // 資産引き出し
+      document.getElementById('withdraw-matic-form').addEventListener('submit', withdrawMATIC);
+      document.getElementById('withdraw-erc20-form').addEventListener('submit', withdrawERC20);
+      document.getElementById('withdraw-nft-form').addEventListener('submit', withdrawNFT);
+    }
+
+    // タブ切り替え機能の設定
+    function setupTabs() {
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // アクティブなタブをリセット
+          tabButtons.forEach(btn => {
+            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+          });
+          
+          // 選択されたタブをアクティブにする
+          button.classList.remove('border-transparent', 'text-gray-500');
+          button.classList.add('border-indigo-500', 'text-indigo-600');
+          
+          // パネルを表示/非表示
+          const targetId = button.id.replace('tab-', 'panel-');
+          tabPanels.forEach(panel => {
+            panel.classList.add('hidden');
+            if (panel.id === targetId) {
+              panel.classList.remove('hidden');
+              
+              // タブに応じたデータ読み込み
+              if (targetId === 'panel-manage') {
+                loadAuctionData();
+              } else if (targetId === 'panel-withdraw') {
+                loadContractBalance();
+                loadContractNFTs();
+              } else if (targetId === 'panel-create') {
+                loadContractNFTList();
+              }
+            }
+          });
+        });
+      });
+    }
+
+    // ウォレット接続
+    async function connectWallet() {
+  try {
+    if (typeof window.ethereum !== 'undefined') {
+      // 重要: ウォレット接続を要求
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // Web3プロバイダーの設定
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const account = await signer.getAddress();
+      
+      // コントラクトインスタンスの作成
+      const contract = new ethers.Contract(state.contractAddress, contractABI, signer);
+      
+      // オーナーかどうか確認
+      const ownerAddress = await contract.owner();
+      const isOwner = account.toLowerCase() === ownerAddress.toLowerCase();
+      
+      // 状態を更新
+      state.connected = true;
+      state.account = account;
+      state.contract = contract;
+      state.isOwner = isOwner;
+      state.provider = provider;
+      state.signer = signer;
+      state.ethers = ethers;
+      
+      // UI更新
+      walletStatus.textContent = `ウォレット: ${shortenAddress(account)}`;
+      connectWalletBtn.textContent = '接続済み';
+      
+      if (isOwner) {
+        ownerWarning.classList.add('hidden');
+        adminControls.classList.remove('hidden');
+      } else {
+        ownerWarning.classList.remove('hidden');
+        adminControls.classList.add('hidden');
+      }
+      
+      // 定期的な情報更新を設定
+      if (state.refreshInterval) {
+        clearInterval(state.refreshInterval);
+      }
+      state.refreshInterval = setInterval(() => {
+        if (document.getElementById('panel-manage').classList.contains('hidden') === false) {
+          loadAuctionData();
+        }
+      }, 30000); // 30秒ごとに更新
+    }
+  } catch (error) {
+    console.error('接続エラー:', error);
+    alert('ウォレット接続中にエラーが発生しました。');
+  }
+}
+
+
+    // アドレスを短縮表示する（0x1234...5678）
+    function shortenAddress(address) {
+      return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    }
+
+    // Unixタイムスタンプを人間が読める形式に変換
+    function formatTimestamp(timestamp) {
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleString();
+    }
+
+    // 残り時間のフォーマット（〇時間〇分〇秒）
+    function formatRemainingTime(seconds) {
+      if (seconds <= 0) return '終了';
+      
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      
+      return `${hours}時間${minutes}分${secs}秒`;
+    }
+
+    // ETHをPOL表示に変換
+    function formatMATIC(wei) {
+      return ethers.utils.formatEther(wei);
+    }
+
+    // NFT所有権確認（オークション作成用）
+    async function checkNFTOwnership() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('nft-contract').value;
+      const tokenId = document.getElementById('token-id').value;
+      const statusEl = document.getElementById('nft-ownership-status');
+      const approvalSection = document.getElementById('approval-section');
+      
+      if (!nftAddress || !tokenId) {
+        statusEl.textContent = 'NFTアドレスとトークンIDを入力してください';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+        return;
+      }
+      
+      try {
+        // ERC721コントラクトのインスタンス作成
+        const nftContract = new ethers.Contract(nftAddress, erc721ABI, state.signer);
+        
+        // トークンの所有者を確認
+        const owner = await nftContract.ownerOf(tokenId);
+        const isContractOwner = owner.toLowerCase() === state.contractAddress.toLowerCase();
+        
+        if (isContractOwner) {
+          // すでにコントラクトが所有している
+          statusEl.textContent = 'このNFTは既にオークションコントラクトが所有しています';
+          statusEl.className = 'ml-2 text-sm text-green-600';
+          approvalSection.classList.add('hidden');
+        } else {
+          const isOwner = owner.toLowerCase() === state.account.toLowerCase();
+          
+          if (isOwner) {
+            // ユーザーが所有している
+            statusEl.textContent = 'あなたはこのNFTの所有者です';
+            statusEl.className = 'ml-2 text-sm text-green-600';
+            
+            // 承認状態を確認
+            const approved = await nftContract.getApproved(tokenId);
+            const isApprovedForAll = await nftContract.isApprovedForAll(state.account, state.contractAddress);
+            
+            if (approved.toLowerCase() === state.contractAddress.toLowerCase() || isApprovedForAll) {
+              // すでに承認済み
+              approvalSection.classList.add('hidden');
+            } else {
+              // 承認が必要
+              approvalSection.classList.remove('hidden');
+            }
+          } else {
+            // 別のアドレスが所有
+            statusEl.textContent = `このNFTはあなたの所有ではありません（所有者: ${shortenAddress(owner)}）`;
+            statusEl.className = 'ml-2 text-sm text-red-600';
+            approvalSection.classList.add('hidden');
+          }
+        }
+      } catch (error) {
+        console.error('NFT確認エラー:', error);
+        statusEl.textContent = 'NFT確認中にエラーが発生しました';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+        approvalSection.classList.add('hidden');
+      }
+    }
+
+    // NFT承認（オークション作成用）
+    async function approveNFT() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('nft-contract').value;
+      const tokenId = document.getElementById('token-id').value;
+      const statusEl = document.getElementById('approval-status');
+      
+      statusEl.textContent = '承認処理中...';
+      statusEl.className = 'ml-2 text-sm text-blue-600';
+      
+      try {
+        const nftContract = new ethers.Contract(nftAddress, erc721ABI, state.signer);
+        
+        // NFTの承認トランザクション送信
+        const tx = await nftContract.approve(state.contractAddress, tokenId);
+        statusEl.textContent = '承認トランザクション送信中...';
+        
+        // トランザクション完了を待つ
+        await tx.wait();
+        
+        statusEl.textContent = '承認完了！';
+        statusEl.className = 'ml-2 text-sm text-green-600';
+        
+        // 承認セクションを非表示
+        setTimeout(() => {
+          document.getElementById('approval-section').classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('承認エラー:', error);
+        statusEl.textContent = '承認処理中にエラーが発生しました';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+      }
+    }
+
+    // オークション作成処理
+    async function handleCreateAuction(e) {
+      e.preventDefault();
+      
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('nft-contract').value;
+      const tokenId = document.getElementById('token-id').value;
+      const startPrice = document.getElementById('start-price').value;
+      const startDateInput = document.getElementById('start-date').value;
+      const endDateInput = document.getElementById('end-date').value;
+      
+      const startDate = new Date(startDateInput);
+      const endDate = new Date(endDateInput);
+      
+      if (startDate >= endDate) {
+        alert('終了日時は開始日時より後に設定してください。');
+        return;
+      }
+      
+      // UnixタイムスタンプへのJavaScript日付変換
+      const startTime = Math.floor(startDate.getTime() / 1000);
+      const endTime = Math.floor(endDate.getTime() / 1000);
+      
+      const statusBox = document.getElementById('create-auction-status');
+      const statusMsg = document.getElementById('create-auction-message');
+      statusBox.classList.remove('hidden');
+      statusMsg.textContent = 'オークション作成処理中...';
+      
+      try {
+        // オークション作成関数呼び出し
+        // startPriceをWei単位に変換
+        const startPriceWei = ethers.utils.parseEther(startPrice.toString());
+        
+        // endTimeを直接指定する方法を使用
+        const tx = await state.contract.createAuctionWithEndTime(
+          nftAddress,
+          tokenId,
+          startPriceWei,
+          startTime,
+          endTime
+        );
+        
+        statusMsg.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        // トランザクション完了を待つ
+        await tx.wait();
+        
+        statusMsg.textContent = 'オークション作成完了！';
+        statusBox.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusBox.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // フォームをリセット
+        document.getElementById('create-auction-form').reset();
+        
+        // 3秒後にステータスメッセージを非表示
+        setTimeout(() => {
+          statusBox.classList.add('hidden');
+          statusBox.classList.remove('bg-green-100', 'border-green-500', 'text-green-700');
+          statusBox.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        }, 3000);
+        
+        // オークション管理タブに切り替え
+        document.getElementById('tab-manage').click();
+      } catch (error) {
+        console.error('オークション作成エラー:', error);
+        statusMsg.textContent = `エラー: ${error.message}`;
+        statusBox.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusBox.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // NFT所有権確認（入庫用）
+    async function checkDepositNFTOwnership() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('deposit-nft-contract').value;
+      const tokenId = document.getElementById('deposit-token-id').value;
+      const statusEl = document.getElementById('deposit-nft-status');
+      const approvalSection = document.getElementById('deposit-approval-section');
+      
+      if (!nftAddress || !tokenId) {
+        statusEl.textContent = 'NFTアドレスとトークンIDを入力してください';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+        return;
+      }
+      
+      try {
+        // ERC721コントラクトのインスタンス作成
+        const nftContract = new ethers.Contract(nftAddress, erc721ABI, state.signer);
+        
+        // トークンの所有者を確認
+        const owner = await nftContract.ownerOf(tokenId);
+        const isOwner = owner.toLowerCase() === state.account.toLowerCase();
+        
+        if (isOwner) {
+          // ユーザーが所有している
+          statusEl.textContent = 'あなたはこのNFTの所有者です';
+          statusEl.className = 'ml-2 text-sm text-green-600';
+          
+          // 承認状態を確認
+          const approved = await nftContract.getApproved(tokenId);
+          const isApprovedForAll = await nftContract.isApprovedForAll(state.account, state.contractAddress);
+          
+          if (approved.toLowerCase() === state.contractAddress.toLowerCase() || isApprovedForAll) {
+            // すでに承認済み
+            approvalSection.classList.add('hidden');
+          } else {
+            // 承認が必要
+            approvalSection.classList.remove('hidden');
+          }
+        } else {
+          // 別のアドレスが所有
+          statusEl.textContent = `このNFTはあなたの所有ではありません（所有者: ${shortenAddress(owner)}）`;
+          statusEl.className = 'ml-2 text-sm text-red-600';
+          approvalSection.classList.add('hidden');
+        }
+      } catch (error) {
+        console.error('NFT確認エラー:', error);
+        statusEl.textContent = 'NFT確認中にエラーが発生しました';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+        approvalSection.classList.add('hidden');
+      }
+    }
+
+    // NFT承認（入庫用）
+    async function approveDepositNFT() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('deposit-nft-contract').value;
+      const tokenId = document.getElementById('deposit-token-id').value;
+      const statusEl = document.getElementById('deposit-approval-status');
+      
+      statusEl.textContent = '承認処理中...';
+      statusEl.className = 'ml-2 text-sm text-blue-600';
+      
+      try {
+        const nftContract = new ethers.Contract(nftAddress, erc721ABI, state.signer);
+        
+        // NFTの承認トランザクション送信
+        const tx = await nftContract.approve(state.contractAddress, tokenId);
+        statusEl.textContent = '承認トランザクション送信中...';
+        
+        // トランザクション完了を待つ
+        await tx.wait();
+        
+        statusEl.textContent = '承認完了！';
+        statusEl.className = 'ml-2 text-sm text-green-600';
+        
+        // 承認セクションを非表示
+        setTimeout(() => {
+          document.getElementById('deposit-approval-section').classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('承認エラー:', error);
+        statusEl.textContent = '承認処理中にエラーが発生しました';
+        statusEl.className = 'ml-2 text-sm text-red-600';
+      }
+    }
+
+    // NFT入庫処理
+    async function handleDepositNFT(e) {
+      e.preventDefault();
+      
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('deposit-nft-contract').value;
+      const tokenId = document.getElementById('deposit-token-id').value;
+      
+      const statusBox = document.getElementById('deposit-nft-status-box');
+      const statusMsg = document.getElementById('deposit-nft-message');
+      statusBox.classList.remove('hidden');
+      statusMsg.textContent = 'NFT入庫処理中...';
+      
+      try {
+        // NFT入庫関数呼び出し
+        const tx = await state.contract.depositNFT(nftAddress, tokenId);
+        statusMsg.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        // トランザクション完了を待つ
+        await tx.wait();
+        
+        statusMsg.textContent = 'NFT入庫完了！';
+        statusBox.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusBox.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // フォームをリセット
+        document.getElementById('deposit-nft-form').reset();
+        
+        // 3秒後にステータスメッセージを非表示
+        setTimeout(() => {
+          statusBox.classList.add('hidden');
+          statusBox.classList.remove('bg-green-100', 'border-green-500', 'text-green-700');
+          statusBox.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-700');
+          
+          // NFTリストを更新
+          loadContractNFTList();
+        }, 3000);
+      } catch (error) {
+        console.error('NFT入庫エラー:', error);
+        statusMsg.textContent = `エラー: ${error.message}`;
+        statusBox.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusBox.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // コントラクト内NFTリストを読み込む関数
+    async function loadContractNFTList() {
+      const loadingEl = document.getElementById('contract-nft-list-loading');
+      const containerEl = document.getElementById('contract-nft-list-container');
+      const tableBodyEl = document.getElementById('contract-nft-list-body');
+      const noNFTEl = document.getElementById('no-contract-nft-list');
+      
+      loadingEl.classList.remove('hidden');
+      containerEl.classList.add('hidden');
+      
+      try {
+        // ここに実際のNFT取得ロジックを実装
+        // 例: activeAuctionのNFTと過去のオークションのNFT情報を取得
+        
+        // サンプルとしてのダミーデータ
+        const nftList = [
+          { address: '0x1234...5678', tokenId: '560', status: 'OMG!!' },
+          { address: '0xabcd...ef12', tokenId: '560', status: '入庫済み' }
+        ];
+        
+        if (nftList.length === 0) {
+          noNFTEl.classList.remove('hidden');
+          tableBodyEl.innerHTML = '';
+        } else {
+          noNFTEl.classList.add('hidden');
+          tableBodyEl.innerHTML = '';
+          
+          // テーブルの行を作成
+          nftList.forEach(nft => {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+              <td class="px-6 py-4 whitespace-nowrap">${nft.address}</td>
+              <td class="px-6 py-4 whitespace-nowrap">${nft.tokenId}</td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  nft.status === 'オークション中' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                }">
+                  ${nft.status}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                ${nft.status !== 'オークション中' ? 
+                  `<button class="text-indigo-600 hover:text-indigo-900" onclick="createAuctionForNFT('${nft.address}', '${nft.tokenId}')">
+                    オークション作成
+                  </button>` : 
+                  `<span class="text-gray-400">操作不可</span>`
+                }
+              </td>
+            `;
+            
+            tableBodyEl.appendChild(row);
+          });
+        }
+        
+        loadingEl.classList.add('hidden');
+        containerEl.classList.remove('hidden');
+      } catch (error) {
+        console.error('NFTリスト取得エラー:', error);
+        loadingEl.classList.add('hidden');
+        containerEl.classList.remove('hidden');
+        noNFTEl.classList.remove('hidden');
+        tableBodyEl.innerHTML = '';
+      }
+    }
+
+    // NFTからオークションを作成する関数
+    function createAuctionForNFT(address, tokenId) {
+      // NFTアドレスとトークンIDを入力フィールドに設定
+      document.getElementById('nft-contract').value = address;
+      document.getElementById('token-id').value = tokenId;
+      
+      // ページをスクロールしてフォームを表示
+      document.getElementById('create-auction-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // アクティブなオークション情報のロード
+    async function loadAuctionData() {
+  if (!state.connected) return;
+  
+  const loadingEl = document.getElementById('active-auction-loading');
+  const infoEl = document.getElementById('active-auction-info');
+  const detailsEl = document.getElementById('active-auction-details');
+  const noAuctionEl = document.getElementById('no-active-auction');
+  
+  loadingEl.classList.remove('hidden');
+  infoEl.classList.add('hidden');
+  
+  try {
+    // アクティブなオークションID取得
+    const activeId = await state.contract.activeAuctionId();
+    
+    if (activeId.toString() === '0') {
+      // アクティブなオークションなし
+      noAuctionEl.classList.remove('hidden');
+      detailsEl.classList.add('hidden');
+    } else {
+      try {
+        // オークション情報取得 (getAuctionInfo のみを使用)
+        const auctionInfo = await state.contract.getAuctionInfo(activeId);
+        
+        // 情報を構造化
+        const nftAddress = auctionInfo[0];
+        const tokenId = auctionInfo[1];
+        const startTime = auctionInfo[2];
+        const endTime = auctionInfo[3];
+        const highestBid = auctionInfo[4];
+        const highestBidder = auctionInfo[5];
+        const finalized = auctionInfo[6];
+        const canceled = auctionInfo[7];
+        const isActive = auctionInfo[8];
+        
+        // 残り時間取得
+        const remainingTime = await state.contract.getRemainingTime(activeId);
+        
+        // UI更新
+        document.getElementById('auction-id').textContent = activeId.toString();
+        document.getElementById('auction-nft-address').textContent = nftAddress;
+        document.getElementById('auction-token-id').textContent = tokenId.toString();
+        document.getElementById('auction-highest-bid').textContent = formatMATIC(highestBid);
+        document.getElementById('auction-highest-bidder').textContent = highestBidder === ethers.constants.AddressZero ? 'なし' : shortenAddress(highestBidder);
+        document.getElementById('auction-start-time').textContent = formatTimestamp(startTime);
+        document.getElementById('auction-end-time').textContent = formatTimestamp(endTime);
+        document.getElementById('auction-remaining-time').textContent = formatRemainingTime(remainingTime);
+        
+        // extension関連の値がない場合はN/Aを表示
+        document.getElementById('auction-extension-count').textContent = 'N/A';
+        document.getElementById('auction-max-extensions').textContent = 'N/A';
+        
+        // ステータス表示を設定
+        let status = '進行中';
+        if (finalized) status = '終了済み';
+        if (canceled) status = 'キャンセル済み';
+        if (!isActive) status = '非アクティブ';
+        
+        document.getElementById('auction-status').textContent = status;
+        
+        // 終了処理ボタンの有効/無効制御
+        const finalizeBtn = document.getElementById('finalize-auction');
+        const now = Math.floor(Date.now() / 1000);
+        
+        if (finalized || canceled || !isActive) {
+          // すでに終了またはキャンセル済み
+          finalizeBtn.disabled = true;
+          finalizeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else if (now >= endTime) {
+          // 終了時間が過ぎている
+          finalizeBtn.disabled = false;
+          finalizeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+          // まだ終了時間前
+          finalizeBtn.disabled = true;
+          finalizeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        
+        // アクティブなオークションのIDをメッセージフォームにセット
+        document.getElementById('message-auction-id').value = activeId.toString();
+        
+        // メッセージがあれば取得して表示
+        try {
+          const currentMessage = await state.contract.auctionMessages(activeId);
+          if (currentMessage) {
+            document.getElementById('auction-message').value = currentMessage;
+          }
+        } catch (msgError) {
+          console.warn('メッセージ取得エラー:', msgError);
+        }
+        
+        noAuctionEl.classList.add('hidden');
+        detailsEl.classList.remove('hidden');
+      } catch (auctionError) {
+        console.error('オークション情報取得エラー:', auctionError);
+        noAuctionEl.classList.remove('hidden');
+        detailsEl.classList.add('hidden');
+      }
+    }
+    
+    // 過去のオークション情報も読み込み
+    await loadPastAuctions();
+    
+    loadingEl.classList.add('hidden');
+    infoEl.classList.remove('hidden');
+  } catch (error) {
+    console.error('オークション情報取得エラー:', error);
+    loadingEl.classList.add('hidden');
+    infoEl.classList.remove('hidden');
+    noAuctionEl.classList.remove('hidden');
+    detailsEl.classList.add('hidden');
+  }
+}
+
+
+    // 過去のオークション情報のロード
+    async function loadPastAuctions() {
+      const loadingEl = document.getElementById('past-auctions-loading');
+      const listEl = document.getElementById('past-auctions-list');
+      const bodyEl = document.getElementById('past-auctions-body');
+      const noAuctionsEl = document.getElementById('no-past-auctions');
+      
+      loadingEl.classList.remove('hidden');
+      listEl.classList.add('hidden');
+      
+      try {
+        // 過去のオークションIDリスト取得
+        const pastIds = await state.contract.getPastAuctions();
+        
+        if (pastIds.length === 0) {
+          noAuctionsEl.classList.remove('hidden');
+          bodyEl.innerHTML = '';
+        } else {
+          noAuctionsEl.classList.add('hidden');
+          bodyEl.innerHTML = '';
+          
+          // 各オークションの情報を取得
+          for (const id of pastIds) {
+            try {
+              const auctionInfo = await state.contract.getAuctionInfo(id);
+              const [
+                nftAddress,
+                tokenId,
+                startTime,
+                endTime,
+                highestBid,
+                highestBidder,
+                finalized,
+                canceled,
+                active
+              ] = auctionInfo;
+              
+              let status = '完了';
+              if (canceled) status = 'キャンセル';
+              if (!finalized && !canceled) status = '未完了';
+              
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">${id.toString()}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${shortenAddress(nftAddress)}:${tokenId.toString()}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${formatMATIC(highestBid)} POL</td>
+                <td class="px-6 py-4 whitespace-nowrap">${formatTimestamp(endTime)}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${status}</td>
+              `;
+              
+              bodyEl.appendChild(row);
+            } catch (auctionError) {
+              console.error(`過去のオークション ${id} 情報取得エラー:`, auctionError);
+            }
+          }
+        }
+        
+        loadingEl.classList.add('hidden');
+        listEl.classList.remove('hidden');
+      } catch (error) {
+        console.error('過去のオークション取得エラー:', error);
+        loadingEl.classList.add('hidden');
+        listEl.classList.remove('hidden');
+        noAuctionsEl.classList.remove('hidden');
+        bodyEl.innerHTML = '';
+      }
+    }
+
+    // オークションキャンセル処理
+    async function cancelAuction() {
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const activeId = document.getElementById('auction-id').textContent;
+      const statusEl = document.getElementById('auction-action-status');
+      
+      if (!activeId || activeId === '0') {
+        alert('アクティブなオークションがありません。');
+        return;
+      }
+      
+      if (!confirm('このオークションをキャンセルしますか？すべての入札は返金されます。')) {
+        return;
+      }
+      
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'キャンセル処理中...';
+      
+      try {
+        const tx = await state.contract.cancelAuction(activeId);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = 'オークションが正常にキャンセルされました。';
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // 情報更新
+        setTimeout(() => {
+          loadAuctionData();
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('キャンセルエラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // オークション再設定
+    async function reconfigureAuction() {
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      alert('オークション再設定機能はこのUIでは未実装です。別途実装が必要です。');
+    }
+
+    // オークション終了処理
+    async function finalizeAuction() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const activeId = document.getElementById('auction-id').textContent;
+      const statusEl = document.getElementById('auction-action-status');
+      
+      if (!activeId || activeId === '0') {
+        alert('アクティブなオークションがありません。');
+        return;
+      }
+      
+      if (!confirm('このオークションを終了処理しますか？最高入札者がいる場合、NFTが転送され、売上が出品者に支払われます。落札者以外の入札者は自分で資金引き出しが可能になります。')) {
+        return;
+      }
+      
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = '終了処理中...';
+      
+      try {
+        const tx = await state.contract.finalizeAuction(activeId);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = 'オークションが正常に終了処理されました。';
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // 情報更新
+        setTimeout(() => {
+          loadAuctionData();
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('終了処理エラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // オークションメッセージを読み込む関数
+    async function loadAuctionMessage() {
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const auctionIdInput = document.getElementById('message-auction-id');
+      const auctionId = auctionIdInput.value.trim();
+      const messageTextarea = document.getElementById('auction-message');
+      const statusEl = document.getElementById('auction-message-status');
+      
+      if (!auctionId) {
+        alert('オークションIDを入力してください。');
+        return;
+      }
+      
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'メッセージを読み込み中...';
+      
+      try {
+        // メッセージを取得
+        const message = await state.contract.auctionMessages(auctionId);
+        messageTextarea.value = message || '';
+        
+        if (message) {
+          statusEl.textContent = 'メッセージを読み込みました。';
+        } else {
+          statusEl.textContent = 'このオークションにはメッセージが設定されていません。';
+        }
+        
+        // 3秒後にステータスメッセージを非表示
+        setTimeout(() => {
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('メッセージ読み込みエラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // オークションメッセージ設定
+    async function setAuctionMessage(e) {
+      e.preventDefault();
+      
+      if (!state.connected) {
+        alert('ウォレットを接続してください。');
+        return;
+      }
+      
+      const auctionIdInput = document.getElementById('message-auction-id');
+      const auctionId = auctionIdInput.value.trim();
+      const message = document.getElementById('auction-message').value.trim();
+      const statusEl = document.getElementById('auction-message-status');
+      
+      if (!auctionId) {
+        alert('オークションIDを入力してください。');
+        return;
+      }
+      
+      if (!message) {
+        alert('メッセージを入力してください。');
+        return;
+      }
+      
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'メッセージを設定中...';
+      
+      try {
+        const tx = await state.contract.setAuctionMessage(auctionId, message);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = 'メッセージが正常に設定されました。';
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // 3秒後にステータスメッセージを非表示
+        setTimeout(() => {
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('メッセージ設定エラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // コントラクト残高の読み込み
+    async function loadContractBalance() {
+      if (!state.connected) return;
+      
+      const loadingEl = document.getElementById('contract-balance-loading');
+      const infoEl = document.getElementById('contract-balance-info');
+      
+      loadingEl.classList.remove('hidden');
+      infoEl.classList.add('hidden');
+      
+      try {
+        // コントラクトのPOL残高取得
+        const balance = await state.provider.getBalance(state.contractAddress);
+        document.getElementById('matic-balance').textContent = formatMATIC(balance);
+        
+        loadingEl.classList.add('hidden');
+        infoEl.classList.remove('hidden');
+      } catch (error) {
+        console.error('残高取得エラー:', error);
+        loadingEl.classList.add('hidden');
+        infoEl.classList.remove('hidden');
+      }
+    }
+
+    // コントラクト内NFTの読み込み
+    async function loadContractNFTs() {
+      // この実装は複雑になるため、このサンプルでは実装を簡略化しています
+      document.getElementById('contract-nfts-loading').classList.add('hidden');
+      document.getElementById('contract-nfts-info').classList.remove('hidden');
+      document.getElementById('no-contract-nfts').classList.remove('hidden');
+      document.getElementById('contract-nfts-list').innerHTML = '';
+    }
+
+    // POL引き出し処理
+    async function withdrawMATIC(e) {
+      e.preventDefault();
+      
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const amount = document.getElementById('withdraw-amount').value;
+      let to = document.getElementById('withdraw-to').value;
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        alert('有効な引き出し額を入力してください。');
+        return;
+      }
+      
+      // 送金先が指定されていない場合は自分のアドレスを使用
+      if (!to) {
+        to = state.account;
+      }
+      
+      const statusEl = document.getElementById('withdraw-matic-status');
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'POL引き出し処理中...';
+      
+      try {
+        // WeiにPOL変換
+        const amountWei = ethers.utils.parseEther(amount);
+        
+        const tx = await state.contract.rescueFunds(to, amountWei);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = `${amount} POLが正常に引き出されました。`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // フォームリセット
+        document.getElementById('withdraw-matic-form').reset();
+        
+        // 残高更新
+        setTimeout(() => {
+          loadContractBalance();
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('POL引き出しエラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // ERC20トークン引き出し処理
+    async function withdrawERC20(e) {
+      e.preventDefault();
+      
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const tokenAddress = document.getElementById('erc20-contract').value;
+      const amount = document.getElementById('erc20-amount').value;
+      let to = document.getElementById('erc20-to').value;
+      
+      if (!tokenAddress || !amount || parseFloat(amount) <= 0) {
+        alert('トークンアドレスと有効な引き出し額を入力してください。');
+        return;
+      }
+      
+      // 送金先が指定されていない場合は自分のアドレスを使用
+      if (!to) {
+        to = state.account;
+      }
+      
+      const statusEl = document.getElementById('withdraw-erc20-status');
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'ERC20トークン引き出し処理中...';
+      
+      try {
+        // トークンコントラクトのデシマル取得
+        const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, state.signer);
+        let decimals = 18; // デフォルト値
+        
+        try {
+          decimals = await tokenContract.decimals();
+        } catch (decimalError) {
+          console.error('デシマル取得エラー:', decimalError);
+          // デフォルト値を使用して続行
+        }
+        
+        // 適切な単位に変換
+        const amountWithDecimals = ethers.utils.parseUnits(amount, decimals);
+        
+        // トークン残高確認
+        const balance = await tokenContract.balanceOf(state.contractAddress);
+        
+        if (amountWithDecimals.gt(balance)) {
+          throw new Error(`残高不足: 要求=${ethers.utils.formatUnits(amountWithDecimals, decimals)}, 残高=${ethers.utils.formatUnits(balance, decimals)}`);
+        }
+        
+        // ERC20救出関数呼び出し
+        const tx = await state.contract.rescueERC20(tokenAddress, to, amountWithDecimals);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = `${amount} トークンが正常に引き出されました。`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // フォームリセット
+        document.getElementById('withdraw-erc20-form').reset();
+        
+        // 3秒後にステータスメッセージを非表示
+        setTimeout(() => {
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('ERC20引き出しエラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // NFT引き出し処理
+    async function withdrawNFT(e) {
+      e.preventDefault();
+      
+      if (!state.connected || !state.isOwner) {
+        alert('オーナーアカウントで接続してください。');
+        return;
+      }
+      
+      const nftAddress = document.getElementById('withdraw-nft-contract').value;
+      const tokenId = document.getElementById('withdraw-token-id').value;
+      let to = document.getElementById('withdraw-nft-to').value;
+      
+      if (!nftAddress || !tokenId) {
+        alert('NFTアドレスとトークンIDを入力してください。');
+        return;
+      }
+      
+      // 送付先が指定されていない場合は自分のアドレスを使用
+      if (!to) {
+        to = state.account;
+      }
+      
+      const statusEl = document.getElementById('withdraw-nft-status');
+      statusEl.classList.remove('hidden', 'bg-green-100', 'border-green-500', 'text-green-700', 'bg-red-100', 'border-red-500', 'text-red-700');
+      statusEl.classList.add('bg-blue-100', 'border-l-4', 'border-blue-500', 'text-blue-700', 'p-4');
+      statusEl.textContent = 'NFT引き出し処理中...';
+      
+      try {
+        const tx = await state.contract.rescueNFT(nftAddress, tokenId, to);
+        statusEl.textContent = 'トランザクション送信中...しばらくお待ちください';
+        
+        await tx.wait();
+        
+        statusEl.textContent = `NFTが正常に引き出されました。`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+        
+        // フォームリセット
+        document.getElementById('withdraw-nft-form').reset();
+        
+        // NFTリスト更新
+        setTimeout(() => {
+          loadContractNFTs();
+          statusEl.classList.add('hidden');
+        }, 3000);
+      } catch (error) {
+        console.error('NFT引き出しエラー:', error);
+        statusEl.textContent = `エラー: ${error.message}`;
+        statusEl.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+        statusEl.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+      }
+    }
+
+    // アプリケーション初期化
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

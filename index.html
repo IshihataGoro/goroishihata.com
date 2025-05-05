@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows 95/98 Style Desktop</title>
+
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'self'">
+    <link rel="stylesheet" href="goro.css">
+</head>
+<body>
+    <div class="desktop">
+        <!-- Admin Note -->
+        <div class="photo-title" style="position: fixed; top: 15%; right: 40%;">
+            <div class="photo-header">GORO'S BOXはあなたのブラウザ上で駆動する独自OSシステムです。<BR>
+          世界的アーチストGORO氏が開発した画期的なテクノロジーによって<BR>
+          CO2とマイクロプラスチック排出削減に役立っています。<BR>
+        ぜひ、職場や家庭でGORO'S BOXを広めてください。
+        </div>
+            <div class="photo-content">
+                <img src="image/title.png" alt="goroの箱">
+            </div>
+        </div>
+
+        <div class="photo-goro draggable" style="position: fixed; bottom: 8%; left: 10%;">
+            <div class="photo-header">goroだよ</div>
+            <div class="photo-content">
+                <img src="image/goro.png" alt="goro">
+            </div>
+        </div>
+
+        <div class="bbs-window" style="position: fixed; bottom: 10%; right: 10%; width: 300px; height: 400px;">
+            <div class="window-header">
+                <div>56ちゃんねる掲示板</div>
+            </div>
+            <div class="bbs-content" id="bbs-messages" style="height: 300px; overflow-y: auto; padding: 10px; background-color: white;">
+                <!-- メッセージがここに表示されます -->
+            </div>
+            <div class="bbs-input" style="padding: 10px; background-color: #f0f0f0;">
+                <input type="text" id="bbs-name" placeholder="お名前" style="width: 100%; margin-bottom: 5px;">
+                <textarea id="bbs-message" placeholder="メッセージを入力" style="width: 100%; height: 60px; margin-bottom: 5px;"></textarea>
+                <button id="bbs-submit" style="float: right;">投稿</button>
+            </div>
+        </div>
+
+        <div class="admin-note draggable" id="admin-note" style="position: fixed; top: 5%; right: 10%;">
+            <div class="admin-note-header">
+                <span>ごろうのメモ</span>
+                <span id="edit-note-button" style="cursor: pointer;">✏️</span>
+            </div>
+            <div class="admin-note-content" id="admin-note-content">
+                新しいNFTコレクションを発表します。
+                きわみホルダーにエアドロップもします
+            </div>
+        </div>
+        
+        <!-- Admin Login Dialog -->
+        <div class="admin-login" id="admin-login">
+            <div class="admin-login-header">管理者ログイン</div>
+            <div>
+                <div style="margin-bottom: 5px;">ユーザー名:</div>
+                <input type="text" id="admin-username" style="width: 100%; margin-bottom: 10px;">
+                <div style="margin-bottom: 5px;">パスワード:</div>
+                <input type="password" id="admin-password" style="width: 100%;">
+            </div>
+            <div class="admin-login-buttons">
+                <div class="admin-login-button" id="cancel-login-button">キャンセル</div>
+                <div class="admin-login-button" id="check-login-button">OK</div>
+            </div>
+        </div>
+        
+        <!-- Desktop Icons -->
+        <div class="icon draggable" style="top: 150px; left: 20px;" id="icon-my-computer">
+            <img src="icons/i-mypc.png" alt="My Computer">
+            <div class="icon-label">マイコンピュータ</div>
+        </div>
+        
+        <div class="icon draggable" style="top: 230px; left: 20px;" id="icon-notepad">
+            <img src="icons/i-memo.png" alt="Notepad">
+            <div class="icon-label">メモ帳</div>
+        </div>
+        
+        <div class="icon draggable" style="top: 310px; left: 20px;" id="icon-internet-explorer">
+            <img src="icons/i-web56.png" alt="Internet Explorer">
+            <div class="icon-label">インターネッツ</div>
+        </div>
+        
+        <div class="icon draggable" style="top: 390px; left: 20px;" id="icon-recycle-bin">
+            <img src="icons/i-trash.png" alt="Recycle Bin">
+            <div class="icon-label">ごみ箱</div>
+        </div>
+        
+        <div class="icon draggable" style="top: 150px; left: 100px;" id="icon-web56">
+            <img src="icons/i-web56.png" alt="Yapoow!">
+            <div class="icon-label">WEB56</div>
+        </div>
+        
+
+        <div class="icon draggable" style="top: 230px; left: 100px;" id="icon-web5">
+            <img src="icons/i-goro.png" alt="web56">
+            <div class="icon-label">pon</div>
+        </div>
+        
+
+
+        <div class="icon draggable" style="top: 310px; left: 100px;" id="icon-aoyama">
+            <img src="icons/i-man.png" alt="Yapoow!">
+            <div class="icon-label">Yapoow!</div>
+        </div>
+
+
+
+        <div class="icon draggable" style="top: 390px; left: 100px;" id="icon-aoyama">
+            <img src="icons/i-folder.png" alt="Yapoow!">
+            <div class="icon-label">Yapoow!</div>
+        </div>
+
+
+
+        <!-- Windows -->
+        <div id="my-computer" class="window" style="top: 50px; left: 100px; width: 400px; height: 300px; display: none;">
+            <div class="resize-handle resize-handle-se"></div>
+            <div class="resize-handle resize-handle-sw"></div>
+            <div class="resize-handle resize-handle-ne"></div>
+            <div class="resize-handle resize-handle-nw"></div>
+            <div class="window-header">
+                <div>マイコンピュータ</div>
+                <div class="window-controls">
+                    <div class="window-button" id="minimize-my-computer">_</div>
+                    <div class="window-button" id="maximize-my-computer">□</div>
+                    <div class="window-button" id="close-my-computer">×</div>
+                </div>
+            </div>
+            <div class="menu-bar">
+                <div class="menu-item">ファイル(F)</div>
+                <div class="menu-item">編集(E)</div>
+                <div class="menu-item">表示(V)</div>
+                <div class="menu-item">ヘルプ(H)</div>
+            </div>
+            <div class="window-content my-computer-content">
+                <div class="folder-icon">
+                    <img src="/api/placeholder/32/32" alt="3.5 Floppy">
+                    <div>3.5インチFD (A:)</div>
+                </div>
+                <div class="folder-icon">
+                    <img src="/api/placeholder/32/32" alt="Hard Drive">
+                    <div>ローカルディスク (C:)</div>
+                </div>
+                <div class="folder-icon">
+                    <img src="/api/placeholder/32/32" alt="CD-ROM">
+                    <div>CD-ROM (D:)</div>
+                </div>
+                <div class="folder-icon">
+                    <img src="/api/placeholder/32/32" alt="Control Panel">
+                    <div>コントロールパネル</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="notepad" class="window" style="top: 70px; left: 150px; width: 350px; height: 280px; display: none;">
+            <div class="resize-handle resize-handle-se"></div>
+            <div class="resize-handle resize-handle-sw"></div>
+            <div class="resize-handle resize-handle-ne"></div>
+            <div class="resize-handle resize-handle-nw"></div>
+            <div class="window-header">
+                <div>無題 - メモ帳</div>
+                <div class="window-controls">
+                    <div class="window-button" id="minimize-notepad">_</div>
+                    <div class="window-button" id="maximize-notepad">□</div>
+                    <div class="window-button" id="close-notepad">×</div>
+                </div>
+            </div>
+            <div class="menu-bar">
+                <div class="menu-item">ファイル(F)</div>
+                <div class="menu-item">編集(E)</div>
+                <div class="menu-item">検索(S)</div>
+                <div class="menu-item">ヘルプ(H)</div>
+            </div>
+            <div class="window-content">
+                <div class="notepad-content" contenteditable="true">これはメモ帳です。ここに文字を入力できます。</div>
+            </div>
+        </div>
+        
+        <div id="internet-explorer" class="window" style="top: 90px; left: 200px; width: 500px; height: 350px; display: none;">
+            <div class="resize-handle resize-handle-se"></div>
+            <div class="resize-handle resize-handle-sw"></div>
+            <div class="resize-handle resize-handle-ne"></div>
+            <div class="resize-handle resize-handle-nw"></div>
+            <div class="window-header">
+                <div>ようこそ - Gorodao Internet Explorer</div>
+                <div class="window-controls">
+                    <div class="window-button" id="minimize-internet-explorer">_</div>
+                    <div class="window-button" id="maximize-internet-explorer">□</div>
+                    <div class="window-button" id="close-internet-explorer">×</div>
+                </div>
+            </div>
+            <div class="menu-bar">
+                <div class="menu-item">ファイル(F)</div>
+                <div class="menu-item">編集(E)</div>
+                <div class="menu-item">表示(V)</div>
+                <div class="menu-item">お気に入り(A)</div>
+                <div class="menu-item">ヘルプ(H)</div>
+            </div>
+            <div class="window-content">
+                <h1>インターネットへようこそ！</h1>
+                <p>GORODAOのインターネットエクスプローラへようこそ。インターネットの世界を探検しましょう。</p>
+                <p>※このページはデモンストレーション用です。実際のインターネット接続はできません。</p>
+            </div>
+        </div>
+        
+
+    <!-- WEB56 -->
+<!-- WEB56ウィンドウ部分の修正 -->
+<div id="web56" class="window" style="top: 90px; left: 200px; width: 640px; height: 480px; display: none;">
+    <div class="resize-handle resize-handle-se"></div>
+    <div class="resize-handle resize-handle-sw"></div>
+    <div class="resize-handle resize-handle-ne"></div>
+    <div class="resize-handle resize-handle-nw"></div>
+    <div class="window-header">
+        <div>Yapoow! - Gorodao Internet Explorer</div>
+        <div class="window-controls">
+            <div class="window-button" id="minimize-web56">一</div>
+            <div class="window-button" id="maximize-web56">ロ</div>
+            <div class="window-button" id="close-web56">X</div>
+        </div>
+    </div>
+    <div class="menu-bar">
+        <div class="menu-item">ファイル(F)</div>
+        <div class="menu-item">編集(E)</div>
+        <div class="menu-item">表示(V)</div>
+        <div class="menu-item">お気に入り(A)</div>
+        <div class="menu-item">ヘルプ(H)</div>
+    </div>
+    <div class="window-content" style="padding: 0; overflow: hidden;">
+        <iframe src="https://www.web56.wtf/" width="100%" height="100%" style="border: none;"></iframe>
+    </div>
+</div>
+
+
+
+
+
+        <div id="recycle-bin" class="window" style="top: 110px; left: 250px; width: 350px; height: 250px; display: none;">
+            <div class="resize-handle resize-handle-se"></div>
+            <div class="resize-handle resize-handle-sw"></div>
+            <div class="resize-handle resize-handle-ne"></div>
+            <div class="resize-handle resize-handle-nw"></div>
+            <div class="window-header">
+                <div>ごみ箱</div>
+                <div class="window-controls">
+                    <div class="window-button" id="minimize-recycle-bin">_</div>
+                    <div class="window-button" id="maximize-recycle-bin">□</div>
+                    <div class="window-button" id="close-recycle-bin">×</div>
+                </div>
+            </div>
+            <div class="menu-bar">
+                <div class="menu-item">ファイル(F)</div>
+                <div class="menu-item">編集(E)</div>
+                <div class="menu-item">表示(V)</div>
+                <div class="menu-item">ヘルプ(H)</div>
+            </div>
+            <div class="window-content">
+                <p>ごみ箱は空です。</p>
+            </div>
+        </div>
+        
+
+
+
+
+
+
+
+        <!-- Start Menu -->
+        <div class="start-menu" id="start-menu">
+            <div class="start-menu-header">Windows 98</div>
+            <div class="start-menu-items">
+                <div class="start-menu-item" id="programs-menu-trigger">
+                    <img src="/api/placeholder/24/24" alt="Programs">
+                    プログラム
+                    <span style="margin-left: auto;">▶</span>
+                </div>
+                <div class="start-menu-submenu" id="programs-menu" style="top: 40px;">
+                    <div class="start-menu-item" id="open-notepad-menu">
+                        <img src="/api/placeholder/24/24" alt="Notepad">
+                        メモ帳
+                    </div>
+                    <div class="start-menu-item">
+                        <img src="/api/placeholder/24/24" alt="Paint">
+                        ペイント
+                    </div>
+                    <div class="start-menu-item">
+                        <img src="/api/placeholder/24/24" alt="Calculator">
+                        電卓
+                    </div>
+                    <div class="start-menu-separator"></div>
+                    <div class="start-menu-item">
+                        <img src="/api/placeholder/24/24" alt="MS-DOS Prompt">
+                        MS-DOSプロンプト
+                    </div>
+                </div>
+                
+                <div class="start-menu-item" id="documents-menu-trigger">
+                    <img src="/api/placeholder/24/24" alt="Documents">
+                    ドキュメント
+                    <span style="margin-left: auto;">▶</span>
+                </div>
+                <div class="start-menu-submenu" id="documents-menu" style="top: 80px;">
+                    <div class="start-menu-item">
+                        <img src="/api/placeholder/24/24" alt="Document">
+                        最近使った文書.doc
+                    </div>
+                    <div class="start-menu-item">
+                        <img src="/api/placeholder/24/24" alt="Document">
+                        企画書.doc
+                    </div>
+                </div>
+                
+                <div class="start-menu-item" id="open-my-computer-menu">
+                    <img src="/api/placeholder/24/24" alt="My Computer">
+                    マイコンピュータ
+                </div>
+                
+                <div class="start-menu-item">
+                    <img src="/api/placeholder/24/24" alt="Control Panel">
+                    コントロールパネル
+                </div>
+                
+                <div class="start-menu-item" id="open-internet-explorer-menu">
+                    <img src="/api/placeholder/24/24" alt="Internet Explorer">
+                    インターネット
+                </div>
+                
+                <div class="start-menu-separator"></div>
+                
+                <div class="start-menu-item">
+                    <img src="/api/placeholder/24/24" alt="Help">
+                    ヘルプ
+                </div>
+                
+                <div class="start-menu-item">
+                    <img src="/api/placeholder/24/24" alt="Run">
+                    ファイル名を指定して実行
+                </div>
+                
+                <div class="start-menu-separator"></div>
+                
+                <div class="start-menu-item" id="shutdown-button">
+                    <img src="/api/placeholder/24/24" alt="Shutdown">
+                    Windowsの終了
+                </div>
+            </div>
+        </div>
+        
+        <!-- Taskbar -->
+        <div class="taskbar">
+            <div class="start-button" id="start-button">
+                <img src="icons/i-chick.png" alt="Start">
+                スタート
+            </div>
+
+            <div class="start-button" id="start-button">
+                 <a href="pages/auction.html">オークション作成</a>
+            </div>
+
+            <div class="start-button" id="start-button">
+                <a href="pages/kurikojo.html">工場</a>
+            </div>
+
+            <div class="start-button" id="start-button">
+                <a href="https://polygonscan.com/address/0x386a0cbc9ada5d98262cb339dccf02e1b322a0dd#code">黒極</a>
+            </div>
+
+
+            <div class="start-button" id="start-button">
+                <a href="https://polygonscan.com/address/0xa0333635ba418ceb9fcc4ac3f2f39aa492f4d0f7#code">白極</a>
+            </div>
+
+            <div class="start-button" id="start-button">
+                <a href="https://hyperliquid.cloud.blockscout.com/token/0xb07BfF3023566709bf131a16888363f558165Dab?tab=inventory">HPG1</a>
+            </div>
+
+          
+            <div class="start-button" id="start-button">
+                <a href="https://hyperliquid.cloud.blockscout.com/token/0x0F680B9a231b5d77F6dFddb1960c4d7703734582">HPG2</a>
+           </div>
+
+           <div class="start-button" id="start-button">
+            <a href="https://hyperliquid.cloud.blockscout.com/address/0x13aa2CF6a795C8eD47E4Ff4164E43aFF549ee0A8?tab=txs">販売コントラクト</a>
+       </div>
+
+
+       <div class="start-button" id="start-button">
+        LKHL
+   </div>
+
+
+            <div class="clock" id="clock">13:37</div>
+        </div>
+    </div>
+    <script src="script.js">
+
+    </script>
+</body>
+</html>

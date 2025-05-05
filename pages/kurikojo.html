@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NFT メタデータ生成 & IPFS 変換</title>
+
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("Checking bs58 availability...");
+        if (typeof bs58 === "undefined") {
+          console.error("bs58 is still undefined!");
+        } else {
+          console.log("bs58 is loaded correctly:", bs58);
+        }
+      });
+    </script>
+</head>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 20px auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      input,
+      textarea {
+        width: 100%;
+        margin: 10px 0;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .button-red {
+        width: 100%;
+        padding: 10px;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .button-red:hover {
+        background-color: #b52b3a;
+      }
+      .button-blue {
+        width: 100%;
+        padding: 10px;
+        background-color: #2ac8e4;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .button-blue:hover {
+        background-color: #1fa6c0;
+      }
+      .button-purple {
+        width: 100%;
+        padding: 10px;
+        background-color: #6f42c1;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .button-purple:hover {
+        background-color: #5936a2;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-x: auto;
+        max-height: 300px;
+      }
+      .box {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>くりごろ工場</h2>
+      <label>DAY を入力:</label>
+      <input type="number" id="dayInput" placeholder="例: 1327" />
+
+      <label>IPFS ハッシュ (CIDv0):</label>
+      <input
+        type="text"
+        id="ipfsInput"
+        placeholder="例: QmaBET2UKcauRp2V77gYfLDXUXPefyUg5xVADfJqe76N3E"
+      />
+
+      <div id="attributesContainer">
+        <label>Trait Type:</label>
+        <input type="text" class="traitTypeInput" placeholder="例: JOB" />
+
+        <label>Value:</label>
+        <input type="text" class="valueInput" placeholder="例: Haiku Poet" />
+      </div>
+
+      <button class="button-blue" onclick="addAttribute()">
+        + Trait を追加
+      </button>
+      <button class="button-red" onclick="generateMetadata()">
+        メタデータを生成
+      </button>
+      <button class="button-purple" onclick="saveMetadata()">
+        JSONファイルを保存
+      </button>
+
+      <h3>生成されたメタデータ:</h3>
+      <pre id="output"></pre>
+    </div>
+
+    <div class="box" style="margin-top: 40px">
+      <h2>IPFS 変換</h2>
+      <label>IPFS ハッシュ (CIDv0):</label>
+      <input
+        type="text"
+        id="ipfsConvertInput"
+        placeholder="例: QmaBET2UKcauRp2V77gYfLDXUXPefyUg5xVADfJqe76N3E"
+        oninput="convertIpfsToHex()"
+      />
+
+      <label>Base16 (Hex) 変換結果:</label>
+      <input type="text" id="ipfsHexOutput" readonly />
+    </div>
+
+    <script>
+      function formatDate(date) {
+        const options = { day: "2-digit", month: "short", year: "numeric" };
+        return date
+          .toLocaleDateString("en-GB", options)
+          .toUpperCase()
+          .replace(/ /g, "/");
+      }
+
+      function addAttribute() {
+        const container = document.getElementById("attributesContainer");
+        const inputs = container.querySelectorAll(".traitTypeInput");
+        if (inputs.length >= 5) return;
+
+        container.appendChild(document.createElement("br"));
+
+        const traitLabel = document.createElement("label");
+        traitLabel.textContent = "Trait Type:";
+        container.appendChild(traitLabel);
+
+        const newTrait = document.createElement("input");
+        newTrait.type = "text";
+        newTrait.className = "traitTypeInput";
+        newTrait.placeholder = "例: JOB";
+        container.appendChild(newTrait);
+
+        const valueLabel = document.createElement("label");
+        valueLabel.textContent = "Value:";
+        container.appendChild(valueLabel);
+
+        const newValue = document.createElement("input");
+        newValue.type = "text";
+        newValue.className = "valueInput";
+        newValue.placeholder = "例: Haiku Poet";
+        container.appendChild(newValue);
+      }
+
+      function generateMetadata() {
+        const day = parseInt(document.getElementById("dayInput").value, 10);
+        const ipfsHash = document.getElementById("ipfsInput").value;
+        const traitInputs = document.querySelectorAll(".traitTypeInput");
+        const valueInputs = document.querySelectorAll(".valueInput");
+
+        if (isNaN(day) || day <= 0) {
+          alert("正しい DAY を入力してください。");
+          return;
+        }
+
+        const startDate = new Date("2021-07-01");
+        const targetDate = new Date(startDate);
+        targetDate.setDate(startDate.getDate() + day - 1);
+        const dateStr = formatDate(targetDate);
+
+        const remainingDays = 2000 - day;
+        let imageUrl = "ipfs://" + ipfsHash;
+
+        let attributes = [];
+        for (let i = 0; i < traitInputs.length; i++) {
+          if (traitInputs[i].value && valueInputs[i].value) {
+            attributes.push({
+              trait_type: traitInputs[i].value,
+              value: valueInputs[i].value,
+            });
+          }
+        }
+
+        const metadata = {
+          name: `CryptoGoro #Day${day}`,
+          description: `CryptoGoro #Day${day}\n\n${dateStr}\n\nWorld famous modern artist Mr.Goro makes his self-portrait every day. Each NFG (Non-Fungible Goro) mint only one. This project will continue until his death. Let’s collect your own Goros!!\n\n${remainingDays} days before death.`,
+          image: imageUrl,
+        };
+
+        if (attributes.length > 0) {
+          metadata["attributes"] = attributes;
+        }
+
+        document.getElementById("output").textContent = JSON.stringify(
+          metadata,
+          null,
+          2
+        );
+      }
+
+      function saveMetadata() {
+        const metadata = document.getElementById("output").textContent;
+        const day = document.getElementById("dayInput").value;
+        if (!metadata || !day) {
+          alert("DAYを入力し、メタデータを生成してください。");
+          return;
+        }
+        const blob = new Blob([metadata], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${day}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+
+
+
+// Base58デコードを自前で実装
+const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const BASE = ALPHABET.length;
+
+function decodeBase58(input) {
+    let num = BigInt(0);
+    for (let i = 0; i < input.length; i++) {
+        num = num * BigInt(BASE) + BigInt(ALPHABET.indexOf(input[i]));
+    }
+    let hex = num.toString(16);
+    if (hex.length % 2) {
+        hex = "0" + hex;
+    }
+    return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+}
+
+function convertIpfsToHex() {
+    const ipfsHash = document.getElementById("ipfsConvertInput").value;
+    console.log("IPFS Hash Input:", ipfsHash);
+
+    if (!ipfsHash.startsWith("Qm")) {
+        document.getElementById("ipfsHexOutput").value = "無効なIPFSハッシュ";
+        return;
+    }
+
+    try {
+        console.log("Decoding with custom Base58 decoder...");
+        const decoded = decodeBase58(ipfsHash);
+        console.log("Decoded Bytes:", decoded);
+
+        if (decoded.length < 2) {
+            document.getElementById("ipfsHexOutput").value = "デコード結果が短すぎる";
+            return;
+        }
+
+        const hashBytes32 = decoded.slice(2); // 先頭2バイトを除去
+        console.log("Hash Bytes (without first 2 bytes):", hashBytes32);
+
+        let hexString = Array.from(hashBytes32)
+            .map(b => b.toString(16).padStart(2, '0')) // Hex変換
+            .join('');
+
+        hexString = "0x" + hexString; // ✅ 先頭に "0x" を追加
+        console.log("Hex Output:", hexString);
+
+        document.getElementById("ipfsHexOutput").value = hexString;
+    } catch (e) {
+        console.error("エラー:", e);
+        document.getElementById("ipfsHexOutput").value = "無効なIPFSハッシュ";
+    }
+}
+
+    </script>
+  </body>
+</html>
